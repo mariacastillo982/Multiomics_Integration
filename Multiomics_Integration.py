@@ -1,3 +1,28 @@
+
+import sys
+import networkx as nx
+from networkx import Graph as NXGraph
+import matplotlib.pyplot as plt
+import statistics
+import collections
+import io
+import re
+import pandas as pd
+import numpy as np
+import pickle
+import math
+import csv
+import os
+import pickle
+from rdflib.extras.external_graph_libs import *
+from rdflib import Graph, Literal, URIRef, Namespace, XSD, RDF, RDFS
+from rdflib.extras.external_graph_libs import rdflib_to_networkx_graph
+from rdflib.namespace import RDF, RDFS
+from SPARQLWrapper import SPARQLWrapper, JSON, CSV
+from sklearn.preprocessing import StandardScaler
+
+
+
 prefixes = '''
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -716,12 +741,11 @@ prot_DB = pd.read_csv(path+'/TCGA_antibodies_descriptions.gencode.v36_2.tsv',sep
 
 merged_df = pd.read_csv(path+'/merged_meta_df.csv')
 
-folder_path='/encrypted/e3008/Yang_tcga/tcga/'
 extension_to_read = '.tsv'  # Specify the extension you want to read, or set to None
 
 # PROTEINS
 omic = 'protein'
-prot_dic=iterate_and_read_files(folder_path, omic, disease, extension_to_read)
+prot_dic=iterate_and_read_files(path, omic, disease, extension_to_read)
 prot_graph=create_rdf_graph_dict(prot_dic, merged_df, prot_DB)
 with open(f"{path}/prot_graph_{disease}.pkl", 'wb') as file:
     pickle.dump(prot_graph, file)
@@ -729,7 +753,7 @@ print("done proteins")
 
 # GENES
 omic = 'gene'
-trans=iterate_and_read_files(folder_path, omic, disease, extension_to_read)
+trans=iterate_and_read_files(path, omic, disease, extension_to_read)
 trans_graph=create_rdf_graph_dict(trans, merged_df, prot_DB)
 with open(f"{path}/trans_graph_{disease}.pkl", 'wb') as file:
     pickle.dump(trans_graph, file)
@@ -737,8 +761,8 @@ print(f"done transcripts")
 
 # miRNAs
 omic = 'mirna'
-extension_to_read = 'mirnas.quantification.txt'
-miRNAs=iterate_and_read_files(folder_path, omic, disease, extension_to_read)
+extension_to_read = '.txt'
+miRNAs=iterate_and_read_files(path, omic, disease, extension_to_read)
 miRNA_graph=create_rdf_graph_dict(miRNAs, merged_df, prot_DB)
 with open(f"{path}/miRNA_graph_{disease}.pkl", 'wb') as file:
     pickle.dump(miRNA_graph, file)
