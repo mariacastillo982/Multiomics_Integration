@@ -1,0 +1,13 @@
+name: multiomics  # Change "my_environment" to your desired environment name
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - networkx
+  - matplotlib
+  - pandas
+  - numpy
+  - rdflib
+  - sparqlwrapper
+  - scikit-learn
