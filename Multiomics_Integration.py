@@ -320,14 +320,14 @@ def create_rdf_graph_dict(dataframes_dict, df, prot_db):  ####2
     graphs_dict = {}
     # Iterate through each item in the dictionary
     for filename, dataframe in dataframes_dict.items():
-        UUID = get_uuid(df, filename, 'submitter_id_x')
+        UUID = get_uuid(df, filename, 'bcr_patient_barcode')
         omic = get_uuid(df, filename, 'type')       
         rdf_graph = create_rdf_graph(dataframe, omic, UUID, prot_db)
         #rdf_graph.serialize(destination=f'/home/castilmg/multiomics/output_{omic}_{UUID}.ttl', format='turtle')
         graphs_dict[filename] = rdf_graph
     return graphs_dict
 
-def create_rdf_graph_study(graphs_dict, df, merged_df, disease):  
+def create_rdf_graph_study(graphs_dict, merged_df, disease):  
     ns = "http://rdf.ebi.ac.uk/resource/study/"
     custom_ns = Namespace(ns)
     study_uri = URIRef(ns + disease)
@@ -336,9 +336,9 @@ def create_rdf_graph_study(graphs_dict, df, merged_df, disease):
     rdf_graph.add((study_uri, RDF.type, custom_ns.Study))
     
     for filename, graph in graphs_dict.items():
-        UUID = get_uuid(df, filename, 'submitter_id')
+        UUID = get_uuid(merged_df, filename, 'bcr_patient_barcode')
         barcode = '-'.join(UUID.split('-')[:3]) 
-        omic = get_uuid(df, filename, 'type') 
+        omic = get_uuid(merged_df, filename, 'type') 
         ns_sample = Namespace("http://rdf.ebi.ac.uk/resource/sample/")
         rdf_graph.bind('sample', ns_sample)
         sample_uri = URIRef(ns_sample + UUID)
@@ -736,7 +736,7 @@ def create_study_df(graph, omic):
 
 
 disease = 'TCGA-BRCA'
-path= './Multiomics_TCGA'
+path= './Multiomics/TCGA'
 prot_DB = pd.read_csv(path+'/TCGA_antibodies_descriptions.gencode.v36_2.tsv',sep='\t')
 
 merged_df = pd.read_csv(path+'/merged_df_TCGA-BRCA.csv')
@@ -745,6 +745,7 @@ extension_to_read = '.tsv'  # Specify the extension you want to read, or set to 
 
 # PROTEINS
 omic = 'protein'
+
 prot_dic=iterate_and_read_files(path, omic, disease, extension_to_read)
 prot_graph=create_rdf_graph_dict(prot_dic, merged_df, prot_DB)
 with open(f"{path}/prot_graph_{disease}.pkl", 'wb') as file:
@@ -776,7 +777,7 @@ with open(f"{path}/prot_graph_{disease}.pkl", 'rb') as file:
 with open(f"{path}/miRNA_graph_{disease}.pkl", 'rb') as file:
     miRNA_graph = pickle.load(file)
 multiomics_graph_dic = {**trans_graph, **prot_graph, **miRNA_graph}
-multiomics_study_graph=create_rdf_graph_study(multiomics_graph_dic, meta, patient_df, disease)
+multiomics_study_graph=create_rdf_graph_study(multiomics_graph_dic, merged_df, disease)
 multiomics_study_graph.serialize(destination=f'{path}/output_study_{disease}.ttl', format='turtle')
 with open(f"{path}/multiomics_graph_dic_{disease}.pkl", 'wb') as file:
     pickle.dump(multiomics_graph_dic, file)    
@@ -789,14 +790,7 @@ multiomics_study_graph.parse(f"{path}/output_study_{disease}.ttl", format='turtl
 with open(f"{path}/multiomics_graph_dic_{disease}.pkl", 'rb') as file:
     multiomics_graph_dic = pickle.load(file)
 
-multiomics_study_graph=create_rdf_graph_study(multiomics_graph_dic, meta, patient_df, disease)
-multiomics_study_graph.serialize(destination=f'{path}/output_study_{disease}_1.ttl', format='turtle')
-print("Done Study Graph")
-
 #Integrate miRNAs to the Knowledge graph
-knowledge_graph = Graph()
-knowledge_graph.parse(path+'/Kownlege_graph.ttl', format='turtle')
-
 miRNA_DB = pd.read_csv(path+'/miRTarBase.csv')
 miRNA_DB.loc[:, 'miRNA'] = convert_miRNA_list(miRNA_DB['miRNA'])
 miRNA_DB.rename(columns={'ENSEMBL':'gene','Target Gene':'SYMBOL'}, inplace=True)
@@ -805,9 +799,6 @@ miRNA_DB = miRNA_DB[['miRNA','gene']]
 kg = KnowledgeGraph()
 df_kg = kg.query_to_pandas(q)
 df_kg.columns=['protein','transcript','ensprotein', 'gene']
-
-multiomics_study_graph = Graph()
-multiomics_study_graph.parse(f"{path}/output_study_{disease}.ttl", format='turtle')
 
 df_kg2 = Knowledge_mirna_csv(df_kg,miRNA_DB)
 df_kg2=df_kg2.map(remove_urls)
@@ -831,9 +822,9 @@ omic = 'mirna'
 mirna_sam_study = create_study_df(miRNA_graph, omic)
 
 # Merge individual sample information with Knowledge graph
-protein_df = pd.merge(protein_sam_study, df_kg, on='protein', how='outer')
+protein_df = pd.merge(protein_sam_study, df_kg2, on='protein', how='outer')
 gene_df = pd.merge(gene_sam_study, protein_df, on=['Sample','gene'], how='inner')
-multiomics_df = pd.merge(mirna_sam_study, gene_df, on=['mirna','Sample'], how='outer')
+multiomics_df = pd.merge(mirna_sam_study, gene_df, on=['mirna','Sample'], how='inner')
 
 # Query Study Graph
 sparql_query_study = """
@@ -861,6 +852,7 @@ merged_multiomics_study = pd.merge(multiomics_df, df_study, on='Sample', how='le
 
 #Standardize the Omics
 columns_to_standardize = ['mirna_Expression', 'gene_Expression', 'protein_Expression']
+merged_multiomics_study[columns_to_standardize] = merged_multiomics_study[columns_to_standardize].astype(float)
 merged_multiomics_study['mirna_Expression']=(merged_multiomics_study['mirna_Expression']-merged_multiomics_study['mirna_Expression'].mean())/(merged_multiomics_study['mirna_Expression'].std())#Standardize
 merged_multiomics_study['gene_Expression']=(merged_multiomics_study['gene_Expression']-merged_multiomics_study['gene_Expression'].mean())/(merged_multiomics_study['gene_Expression'].std())#Standardize
 merged_multiomics_study['protein_Expression']=(merged_multiomics_study['protein_Expression']-merged_multiomics_study['protein_Expression'].mean())/(merged_multiomics_study['protein_Expression'].std())#Standardize
