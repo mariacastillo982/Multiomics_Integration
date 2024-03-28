@@ -736,7 +736,7 @@ def create_study_df(graph, omic):
 
 
 disease = 'TCGA-BRCA'
-path= './Multiomics TCGA'
+path= './Multiomics_TCGA'
 prot_DB = pd.read_csv(path+'/TCGA_antibodies_descriptions.gencode.v36_2.tsv',sep='\t')
 
 merged_df = pd.read_csv(path+'/merged_df_TCGA-BRCA.csv')
