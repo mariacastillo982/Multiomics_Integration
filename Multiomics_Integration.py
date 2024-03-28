@@ -739,7 +739,7 @@ disease = 'TCGA-BRCA'
 path= './Multiomics TCGA'
 prot_DB = pd.read_csv(path+'/TCGA_antibodies_descriptions.gencode.v36_2.tsv',sep='\t')
 
-merged_df = pd.read_csv(path+'/merged_meta_df.csv')
+merged_df = pd.read_csv(path+'/merged_df_TCGA-BRCA.csv')
 
 extension_to_read = '.tsv'  # Specify the extension you want to read, or set to None
 
